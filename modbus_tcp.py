@@ -7,40 +7,79 @@ import operator
 import copy
 from PySide6.QtCore import (QThread,Signal) 
 
-class ModTcp03_100(QThread):
-    updateFrame = Signal(str)
+
+class ModTcp_master(QThread):
+    updateFrame = Signal(object)
+    isOpen = None
     def __init__(self,paren=None):
         QThread.__init__(self)
         logger = modbus_tk.utils.create_logger(name='console', record_format='%(message)s')
         logger.info("running...")
+        self.isOpen = True
+    def initData(self,ip='127.0.0.1',port=10152):
+        print(ip)
+        print(port)
+        self.master =  modbus_tcp.TcpMaster(host=ip,port=port,timeout_in_sec=3)
+    def threadClose(self):
+        self.isOpen = False
 
-    def initData(self,port=10152,backsize=10):
-        server = modbus_tcp.TcpServer(port=port)
-        server.start()
-        self.backsize = backsize
-        self.slave1 = server.add_slave(1)
-            # add 2 blocks of holding registers
-        self.slave1.add_block('a', mdef.HOLDING_REGISTERS, 0, self.backsize)  # address 0, length 100
-            # set the values of registers at address 0
-        # slave1.set_values('a', 0, 0)
-        self.value2  = copy.copy(self.slave1.get_values('a',0,self.backsize))
 
     def run(self):
-        while True:
-            time.sleep(1)
-            value = self.slave1.get_values('a',0,self.backsize)
-            if(not operator.eq(self.value2,value)):
-                # self.back(value)
-                s = []
-                for everyOne in value:
-                   s.append(str(everyOne)) 
-                self.updateFrame.emit(",".join(s))
-                self.value2 = copy.copy(value)    
+        while self.isOpen:
+            time.sleep(2)
+            print("...")
+            print(self.master)
+            s = []
+            ls = []
+            # 计算（0，1）、模式（2）
+            value = self.master.execute(slave=1, function_code=mdef.READ_HOLDING_REGISTERS, starting_address=2183, quantity_of_x=3)
+            ls.append(value[0]*65536+value[1])
+            ls.append(value[2])
+            
+            # 轴数（0）
+            value = self.master.execute(slave=1, function_code=mdef.READ_HOLDING_REGISTERS, starting_address=2267, quantity_of_x=1)
+            ls.append(value[0])
+            # 报警号
+            value = self.master.execute(slave=1, function_code=mdef.READ_HOLDING_REGISTERS, starting_address=2396, quantity_of_x=1)
+            ls.append(value[0]) 
+            # 移动状态
+            value = self.master.execute(slave=1, function_code=mdef.READ_HOLDING_REGISTERS, starting_address=2470, quantity_of_x=1)
+            ls.append(value[0])
+             # 全局速度:20200
+            value = self.master.execute(slave=1, function_code=mdef.READ_HOLDING_REGISTERS, starting_address=2020, quantity_of_x=1)
+            ls.append(value[0])
+            s.append(ls)
+            # 1轴（0，1），2轴（2，3），3轴（4，5），4轴（6，7），5轴（8，9），6轴（10，11）
+            value = self.master.execute(slave=1, function_code=mdef.READ_HOLDING_REGISTERS, starting_address=2268, quantity_of_x=12)
+            s.append(self.value_handle(value)) 
+            # 世界坐标：X轴（0, 1），Y轴（2, 3），Z轴（4, 5），U轴（6, 7），V轴（8, 9），W轴（10，11）
+            value = self.master.execute(slave=1, function_code=mdef.READ_HOLDING_REGISTERS, starting_address=2332, quantity_of_x=12)
+            s.append(self.value_handle(value))
+            # 扭矩：1轴（0），2轴（2），3轴（3），4轴（4），5轴（5），6轴（6）
+            value = self.master.execute(slave=1, function_code=mdef.READ_HOLDING_REGISTERS, starting_address=2406, quantity_of_x=6)
+            s.append(list(value))
+            
+            self.updateFrame.emit(s)
+        
+    def value_handle(self,value):
+        newValue = []
+        for i in range(int(len(value) / 2)):
+            newValue.append(value[2*i]*65536+value[2*i+1])
+        return newValue    
 
-    def set_value(self,adress,value):
-        self.slave1.set_values('a',adress,value)
+    def set_value(self,type,adress,value):
+        if type == 0:
+            self.master.execute(slave=1,function_code=mdef.WRITE_SINGLE_REGISTER,starting_address=5,output_value=1)
+            self.master.execute(slave=1,function_code=mdef.WRITE_SINGLE_REGISTER,starting_address=6,output_value=1)
+            self.master.execute(slave=1,function_code=mdef.WRITE_SINGLE_REGISTER,starting_address=9,output_value=1)
+        elif type == 1:
+            self.master.execute(slave=1,function_code=mdef.WRITE_SINGLE_REGISTER,starting_address=6,output_value=11)
+            self.master.execute(slave=1,function_code=mdef.WRITE_SINGLE_REGISTER,starting_address=9,output_value=1)
 def backdata(value):
     print(value)
 
 if __name__ == "__main__":
-    ModTcp03_100(port=11520,back=backdata,backsize=20).start()
+    socke = ModTcp_master()
+    socke.initData(ip='192.168.3.70',port=10180)
+    socke.updateFrame.connect(backdata)
+    socke.start()
