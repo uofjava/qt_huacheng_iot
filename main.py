@@ -24,7 +24,7 @@ class AGV:
     def btnsHandler(self,b):
         print("butenName"+b.text())
         self.socke = ModTcp_master(self)
-        self.socke.initData(ip="192.168.3.70",port=10180)
+        self.socke.initData(ip="192.168.11.120",port=9760)
         self.socke.updateFrame.connect(self.backData)
         self.socke.start()
     

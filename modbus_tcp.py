@@ -31,6 +31,7 @@ class ModTcp_master(QThread):
             print(self.master)
             s = []
             ls = []
+            # (0,0,0)
             # 计算（0，1）、模式（2）
             value = self.master.execute(slave=1, function_code=mdef.READ_HOLDING_REGISTERS, starting_address=2183, quantity_of_x=3)
             ls.append(value[0]*65536+value[1])
@@ -46,7 +47,7 @@ class ModTcp_master(QThread):
             value = self.master.execute(slave=1, function_code=mdef.READ_HOLDING_REGISTERS, starting_address=2470, quantity_of_x=1)
             ls.append(value[0])
              # 全局速度:20200
-            value = self.master.execute(slave=1, function_code=mdef.READ_HOLDING_REGISTERS, starting_address=2020, quantity_of_x=1)
+            value = self.master.execute(slave=1, function_code=mdef.READ_HOLDING_REGISTERS, starting_address=20200, quantity_of_x=1)
             ls.append(value[0])
             s.append(ls)
             # 1轴（0，1），2轴（2，3），3轴（4，5），4轴（6，7），5轴（8，9），6轴（10，11）
@@ -62,6 +63,7 @@ class ModTcp_master(QThread):
             self.updateFrame.emit(s)
         
     def value_handle(self,value):
+        print(value)
         newValue = []
         for i in range(int(len(value) / 2)):
             newValue.append(value[2*i]*65536+value[2*i+1])
