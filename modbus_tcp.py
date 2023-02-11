@@ -66,7 +66,12 @@ class ModTcp_master(QThread):
         print(value)
         newValue = []
         for i in range(int(len(value) / 2)):
-            newValue.append(value[2*i]*65536+value[2*i+1])
+            if value[2*i] > 32767:
+                print(5536-value[2*i])
+                newValue.append(value[2*i+1]-(65536 * (65536-value[2*i])))
+            else:
+                newValue.append(value[2*i]*65536+value[2*i+1])
+        print(newValue)
         return newValue    
 
     def set_value(self,type,adress,value):
